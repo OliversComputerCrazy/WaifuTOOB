@@ -4,5 +4,6 @@
   "theme_color": "#ff69b4",
   "background_color": "#ffffff",
   "display": "fulscreen",
-  "start_url": "index.html"
+  "start_url": "/WaifuTOOB/index.html",
+  "scope": "/WaifuTOOB/"
 }
