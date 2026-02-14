@@ -1,5 +1,1 @@
-Text = #4773CC
-Highlight = #D2DBED
-Neutral = #C1D1F1
-Shadow = #97B5F1
-Dark = #7C9CDD
+
