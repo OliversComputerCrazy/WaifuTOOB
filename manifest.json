@@ -1,0 +1,8 @@
+{
+  "name": "WaifuTOOB",
+  "short_name": "TOOB",
+  "theme_color": "#ff69b4",
+  "background_color": "#ffffff",
+  "display": "fulscreen",
+  "start_url": "index.html"
+}
