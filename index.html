@@ -316,15 +316,28 @@
                 console.error('No image data in response:', data);
                 return;
             }
+          //
+          } else if (mode === 'advanced') {
+              // --- Advanced mode fetches generated API URL ---
+              const requestUrl = localStorage.getItem('generatedUrl');
 
-        } else if (mode === 'advanced') {
-            // --- Advanced mode uses localStorage.generatedUrl ---
-            imageUrl = localStorage.getItem('generatedUrl');
-            if (!imageUrl) {
-                alert("No generatedUrl found in localStorage for Advanced mode!");
-                return;
-            }
-        }
+              if (!requestUrl) {
+                  alert("No generatedUrl found in localStorage for Advanced mode!");
+                  return;
+              }
+
+              console.log("Advanced request:", requestUrl);
+
+              const response = await fetch(requestUrl);
+              const data = await response.json();
+
+              if (data.items && data.items[0]) {
+                  imageUrl = data.items[0].url;
+              } else {
+                  console.error("No image returned:", data);
+                  return;
+              }
+          }
 
         // --- Create and append the image ---
         const img = document.createElement('img');
