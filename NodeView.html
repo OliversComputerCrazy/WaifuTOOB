@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Node Editor v3 - Mobile Friendly</title>
+  <style>
+    body{
+      margin:0;
+      font-family:sans-serif;
+      overflow:hidden;
+      background:#222;
+      color:#fff;
+      touch-action: none;
+    }
+    canvas{
+      display:block;
+    }
+    button{
+      position:absolute;
+      top:10px;
+      left:10px;
+      z-index:1000;
+      padding:10px;
+      font-size:16px;
+      border:none;
+      border-radius:5px;
+      background:#444;
+      color:#fff;
+    }
+    select, input.nodeInput{
+      position:absolute;
+      width:120px;
+      text-align:center;
+      border:none;
+      border-radius:5px;
+      background:#444;
+      color:#fff;
+      font-size:14px;
+      padding:5px;
+    }
+    select{
+      top:60px;
+      left:10px;
+    }
+    #buildUrlBtn{
+      left:150px;
+      top:10px;
+    }
+  </style>
+</head>
+
+<body>
+<button id="addNodeBtn">Add Node</button>
+<select id="nodeTypeSelect">
+  <option value="excluded-tag">Excluded tags</option>
+  <option value="included-tag">Included tags</option>
+  <option value="width">width</option>
+  <option value="height">height</option>
+  <option value="orientation">orientation</option>
+  <option value="isAnimated">Is Animated</option>
+  <option value="isNsfw">Is NSFW</option>
+</select>
+<button id="buildUrlBtn">Build URL</button>
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let nodes = [];
+let edges = [];
+let inputsElements = [];
+let draggingNode = null;
+let dragOffset = {x:0, y:0};
+let connecting = null;
+let mouse = {x:0, y:0};
+
+let tagOptions = [];
+
+async function loadTagNames() {
+  try {
+    const response = await fetch("https://api.waifu.im/tags");
+    const data = await response.json();
+
+    // Extract only the names
+    tagOptions = data.items.map(tag => tag.name);
+
+    console.log(tagOptions);
+  } catch (error) {
+    console.error("Failed to load tags:", error);
+  }
+}
+
+loadTagNames();
+
+const orientationOptions = ["Landscape","Portrait","Square"];
+const animationOptions = ["True","False"];
+const nsfwOptions = ["True","False","All"];
+let bin = {x:0, y:0, width:90, height:60}; 
+const baseUrl = "https://api.waifu.im/images?";
+
+// ---------------- Resize Canvas ----------------
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  bin.x = canvas.width - bin.width - 20;
+  bin.y = canvas.height - bin.height - 20;
+  draw();
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+// ---------------- Create Node ----------------
+function createNode(x, y, type="node", value="") {
+  const node = {x, y, width:140, height:60, type, value, input:null, output:null};
+  nodes.push(node);
+  addInputElement(node);
+  draw();
+  return node;
+}
+
+// ---------------- Add Input Element ----------------
+function addInputElement(node) {
+  let element;
+  if(node.type==="included-tag" || node.type==="excluded-tag") {
+    element = document.createElement("select");
+    element.className="nodeInput";
+    tagOptions.forEach(tag => { 
+      const opt = document.createElement("option"); 
+      opt.value=tag; opt.textContent=tag; 
+      element.appendChild(opt);
+    });
+    node.value = tagOptions[0];
+  } else if(node.type==="orientation") {
+    element = document.createElement("select");
+    element.className="nodeInput";
+    orientationOptions.forEach(o => { 
+      const opt = document.createElement("option"); 
+      opt.value=o; opt.textContent=o; 
+      element.appendChild(opt);
+    });
+    node.value = orientationOptions[0];
+  } else if(node.type==="isAnimated") {
+    element = document.createElement("select");
+    element.className="nodeInput";
+    animationOptions.forEach(o => { 
+      const opt = document.createElement("option"); 
+      opt.value=o; opt.textContent=o; 
+      element.appendChild(opt);
+    });
+    node.value = animationOptions[0];
+  } else if(node.type==="isNsfw") {
+    element = document.createElement("select");
+    element.className="nodeInput";
+    nsfwOptions.forEach(o => { 
+      const opt = document.createElement("option"); 
+      opt.value=o; opt.textContent=o; 
+      element.appendChild(opt);
+    });
+    node.value = nsfwOptions[0];
+  } else if(node.type!=="root") {
+    element = document.createElement("input");
+    element.className="nodeInput";
+    element.type="text";
+    element.placeholder = node.type;
+    element.value = node.value || "";
+  }
+  if(!element) return;
+  element.oninput = e => { node.value = e.target.value; node.output=node.value; draw(); };
+  element.onchange = e => { node.value = e.target.value; node.output=node.value; };
+  document.body.appendChild(element);
+  inputsElements.push({node, element});
+}
+
+// ---------------- Draw ----------------
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle="#fff"; ctx.lineWidth=2;
+
+  edges.forEach(e=>{
+    const from = {x:e.from.x+e.from.width, y:e.from.y+e.from.height/2};
+    const to = {x:e.to.x, y:e.to.y+e.to.height/2};
+    ctx.beginPath();
+    ctx.moveTo(from.x,from.y);
+    ctx.lineTo(to.x,to.y);
+    ctx.stroke();
+  });
+
+  if(connecting){
+    ctx.beginPath();
+    ctx.moveTo(connecting.x, connecting.y);
+    ctx.lineTo(mouse.x, mouse.y);
+    ctx.stroke();
+  }
+
+  nodes.forEach(n=>{
+    ctx.fillStyle = (n.type==="root") ? "#555" : "#333";
+    ctx.fillRect(n.x,n.y,n.width,n.height);
+    ctx.strokeStyle="#fff"; ctx.strokeRect(n.x,n.y,n.width,n.height);
+    ctx.fillStyle="#fff"; ctx.font="14px sans-serif";
+    ctx.fillText(n.type, n.x+5, n.y+20);
+
+    n.inputPos={x:n.x-5, y:n.y+n.height/2-5};
+    n.outputPos={x:n.x+n.width-5, y:n.y+n.height/2-5};
+
+    ctx.fillStyle="#fff";
+    if(n.type!=="root") ctx.fillRect(n.inputPos.x,n.inputPos.y,12,12);
+    ctx.fillRect(n.outputPos.x,n.outputPos.y,12,12);
+  });
+
+  // Draw bin
+  ctx.fillStyle="#aa2222";
+  ctx.fillRect(bin.x,bin.y,bin.width,bin.height);
+  ctx.strokeStyle="#fff"; ctx.lineWidth=3;
+  ctx.strokeRect(bin.x,bin.y,bin.width,bin.height);
+  ctx.fillStyle="#fff"; ctx.font="16px sans-serif";
+  ctx.fillText("DELETE", bin.x+10, bin.y+35);
+
+  // Update input positions
+  inputsElements.forEach(obj=>{
+    obj.element.style.left = obj.node.x+20+"px";
+    obj.element.style.top = obj.node.y+22+"px";
+  });
+}
+
+// ---------------- Mouse & Touch Events ----------------
+function getPos(e) {
+  if(e.touches) return {x:e.touches[0].clientX, y:e.touches[0].clientY};
+  return {x:e.clientX, y:e.clientY};
+}
+
+function handleDown(e){
+  const pos = getPos(e);
+  mouse.x = pos.x; mouse.y = pos.y;
+  for(const n of nodes){
+    const p = n.outputPos;
+    if(mouse.x>p.x && mouse.x<p.x+12 && mouse.y>p.y && mouse.y<p.y+12){
+      connecting={node:n, x:p.x+6, y:p.y+6};
+      return;
+    }
+  }
+  for(const n of nodes){
+    if(mouse.x>n.x && mouse.x<n.x+n.width && mouse.y>n.y && mouse.y<n.y+n.height){
+      draggingNode=n;
+      dragOffset.x = mouse.x - n.x;
+      dragOffset.y = mouse.y - n.y;
+      return;
+    }
+  }
+}
+function handleMove(e){
+  const pos = getPos(e);
+  mouse.x = pos.x; mouse.y = pos.y;
+  if(draggingNode){
+    draggingNode.x = mouse.x - dragOffset.x;
+    draggingNode.y = mouse.y - dragOffset.y;
+    draw();
+  }
+}
+function handleUp(e){
+  if(connecting){
+    for(const n of nodes){
+      const p=n.inputPos;
+      if(mouse.x>p.x && mouse.x<p.x+12 && mouse.y>p.y && mouse.y<p.y+12 && n!==connecting.node){
+        edges.push({from:connecting.node, to:n});
+        connecting=null; draw(); return;
+      }
+    }
+    connecting=null;
+  }
+  if(draggingNode && draggingNode.type!=="root"){
+    const cx = draggingNode.x+draggingNode.width/2;
+    const cy = draggingNode.y+draggingNode.height/2;
+    const insideBin = cx>bin.x && cx<bin.x+bin.width && cy>bin.y && cy<bin.y+bin.height;
+    if(insideBin){
+      edges = edges.filter(e=>e.from!==draggingNode && e.to!==draggingNode);
+      nodes = nodes.filter(n=>n!==draggingNode);
+      const inputObj = inputsElements.find(el=>el.node===draggingNode);
+      if(inputObj){ inputObj.element.remove(); inputsElements = inputsElements.filter(el=>el!==inputObj); }
+      draggingNode=null; draw(); return;
+    }
+  }
+  draggingNode=null;
+}
+
+canvas.addEventListener("mousedown", handleDown);
+canvas.addEventListener("mousemove", handleMove);
+canvas.addEventListener("mouseup", handleUp);
+canvas.addEventListener("touchstart", e=>{ e.preventDefault(); handleDown(e); });
+canvas.addEventListener("touchmove", e=>{ e.preventDefault(); handleMove(e); });
+canvas.addEventListener("touchend", e=>{ e.preventDefault(); handleUp(e); });
+
+// ---------------- Add Node Button ----------------
+document.getElementById("addNodeBtn").addEventListener("click", ()=>{
+  const type = document.getElementById("nodeTypeSelect").value;
+  if(type!=="included-tag" && type!=="excluded-tag"){
+    const exists = nodes.some(n=>n.type===type);
+    if(exists){ alert("Only one '"+type+"' node is allowed."); return; }
+  }
+  createNode(150 + nodes.length*30, 150 + nodes.length*30, type, "");
+  draw();
+});
+
+// ---------------- Build URL ----------------
+function getParams(root){
+  const params=[]; const visited=new Set();
+  function traverse(n){
+    if(visited.has(n)) return;
+    visited.add(n);
+    edges.filter(e=>e.from===n).forEach(e=>{
+      if(e.to.value) params.push({type:e.to.type,value:e.to.value});
+      traverse(e.to);
+    });
+  }
+  traverse(root);
+  return params;
+}
+
+document.getElementById("buildUrlBtn").addEventListener("click", ()=>{
+  const root = nodes.find(n=>n.type==="root");
+  if(!root){ alert("No root node!"); return; }
+
+  const params = getParams(root);
+
+  const includedTags = [];
+  const excludedTags = [];
+  const normalParams = [];
+
+  params.forEach(p=>{
+    if(p.type==="included-tag") includedTags.push(p.value);
+    else if(p.type==="excluded-tag") excludedTags.push(p.value);
+    else normalParams.push(`${encodeURIComponent(p.type)}=${encodeURIComponent(p.value)}`);
+  });
+
+  if(includedTags.length) normalParams.push(`includedTags=[${includedTags.join(",")}]`);
+  if(excludedTags.length) normalParams.push(`excludedTags=[${excludedTags.join(",")}]`);
+
+  const finalUrl = baseUrl + normalParams.join("&");
+
+  // Save URL
+  localStorage.setItem("generatedUrl", finalUrl);
+
+  // Save graph
+  const graph = {
+    nodes: nodes.map(n => ({
+      x: n.x,
+      y: n.y,
+      type: n.type,
+      value: n.value
+    })),
+    edges: edges.map(e => ({
+      from: nodes.indexOf(e.from),
+      to: nodes.indexOf(e.to)
+    }))
+  };
+
+  localStorage.setItem("nodeGraph", JSON.stringify(graph));
+});
+//load graph
+function loadSavedGraph(){
+  const saved = localStorage.getItem("nodeGraph");
+  if(!saved) return;
+
+  const graph = JSON.parse(saved);
+
+  nodes = [];
+  edges = [];
+
+  // Remove old inputs
+  inputsElements.forEach(obj => obj.element.remove());
+  inputsElements = [];
+
+  // Recreate nodes
+  graph.nodes.forEach(n=>{
+    const newNode = createNode(n.x, n.y, n.type, n.value);
+    newNode.value = n.value;
+
+    const inputObj = inputsElements.find(el=>el.node===newNode);
+    if(inputObj){
+      inputObj.element.value = n.value;
+    }
+  });
+
+  // Recreate edges
+  graph.edges.forEach(e=>{
+    edges.push({
+      from: nodes[e.from],
+      to: nodes[e.to]
+    });
+  });
+
+  draw();
+}
+
+// ---------------- Initial Root Node ----------------
+if(localStorage.getItem("nodeGraph")){
+  loadSavedGraph();
+}else{
+  createNode(100,100,"root","");
+  draw();
+};
+</script>
+</body>
+</html>
