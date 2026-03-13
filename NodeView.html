@@ -74,29 +74,7 @@ let dragOffset = {x:0, y:0};
 let connecting = null;
 let mouse = {x:0, y:0};
 
-let tagOptions = [];
-
-async function loadTagNames() {
-  try {
-    const response = await fetch("https://api.waifu.im/tags");
-    const data = await response.json();
-
-    // Extract only the names
-    tagOptions = data.items.map(tag => tag.name);
-
-    console.log(tagOptions);
-  } catch (error) {
-    console.error("Failed to load tags:", error);
-  }
-}
-
-loadTagNames();
-
-const orientationOptions = ["Landscape","Portrait","Square"];
-const animationOptions = ["True","False"];
-const nsfwOptions = ["True","False","All"];
-let bin = {x:0, y:0, width:90, height:60}; 
-const baseUrl = "https://api.waifu.im/images?";
+let tagOptions = ["waifu","ero", "ecchi", "oppai", "hentai", "milf", "uniform", "ass", "maid", "selfies", "oral", "paizuri", "genshin-impact", "raiden-shogun", "marin-kitagawa", "mori-calliope", "kamisato-ayaka"];
 
 // ---------------- Resize Canvas ----------------
 function resizeCanvas() {
