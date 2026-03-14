@@ -475,10 +475,10 @@ document.getElementById("buildUrlBtn").addEventListener("click",()=>{
   });
 
   if(includedTags.length)
-  normalParams.push(`includedTags=[${includedTags.join(",")}]`);
+  normalParams.push(`includedTags=[${includedTags.map(t => `"${t}"`).join(",")}]`);
 
   if(excludedTags.length)
-  normalParams.push(`excludedTags=[${excludedTags.join(",")}]`);
+  normalParams.push(`excludedTags=[${excludedTags.map(t => `"${t}"`).join(",")}]`);
 
   const finalUrl=baseUrl+normalParams.join("&");
 
