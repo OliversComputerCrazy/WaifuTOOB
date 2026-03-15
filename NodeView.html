@@ -92,7 +92,7 @@ const tagOptions=["waifu","ero", "ecchi", "oppai", "hentai", "milf", "uniform", 
 
 const orientationOptions=["landscape","portrait","square"];
 const animationOptions=["True","False"];
-const nsfwOptions=["True","False", "All"];
+const nsfwOptions=["True","False","All"];
 
 const bin={
   x:0,
@@ -285,7 +285,6 @@ function draw(){
 }
 
 function getPos(e){
-
   if(e.touches)
   return{x:e.touches[0].clientX,y:e.touches[0].clientY};
 
@@ -304,7 +303,6 @@ function handleDown(e){
     const p=n.outputPos;
 
     if(mouse.x>p.x&&mouse.x<p.x+12&&mouse.y>p.y&&mouse.y<p.y+12){
-
       connecting={node:n,x:p.x+6,y:p.y+6};
       return;
     }
@@ -371,22 +369,17 @@ function handleUp(){
     if(insideBin){
 
       edges=edges.filter(e=>e.from!==draggingNode&&e.to!==draggingNode);
-
       nodes=nodes.filter(n=>n!==draggingNode);
 
       const inputObj=inputsElements.find(el=>el.node===draggingNode);
 
       if(inputObj){
-
         inputObj.element.remove();
-
         inputsElements=inputsElements.filter(el=>el!==inputObj);
       }
 
       draggingNode=null;
-
       draw();
-
       return;
     }
   }
@@ -411,14 +404,12 @@ document.getElementById("addNodeBtn").addEventListener("click",()=>{
     const exists=nodes.some(n=>n.type===type);
 
     if(exists){
-
       alert("Only one '"+type+"' node allowed");
       return;
     }
   }
 
   createNode(150+nodes.length*30,150+nodes.length*30,type,"");
-
 });
 
 function getParams(root){
@@ -451,7 +442,6 @@ document.getElementById("buildUrlBtn").addEventListener("click",()=>{
   const root=nodes.find(n=>n.type==="root");
 
   if(!root){
-
     alert("No root node");
     return;
   }
@@ -474,18 +464,20 @@ document.getElementById("buildUrlBtn").addEventListener("click",()=>{
     normalParams.push(`${encodeURIComponent(p.type)}=${encodeURIComponent(p.value)}`);
   });
 
-  if(includedTags.length)
-  normalParams.push(`includedTags=[${includedTags.map(t => `"${t}"`).join(",")}]`);
+  // NEW TAG FORMAT
+  includedTags.forEach(tag=>{
+    normalParams.push(`includedTags=${encodeURIComponent(tag)}`);
+  });
 
-  if(excludedTags.length)
-  normalParams.push(`excludedTags=[${excludedTags.map(t => `"${t}"`).join(",")}]`);
+  excludedTags.forEach(tag=>{
+    normalParams.push(`excludedTags=${encodeURIComponent(tag)}`);
+  });
 
   const finalUrl=baseUrl+normalParams.join("&");
 
   localStorage.setItem("generatedUrl",finalUrl);
 
   const graph={
-
     nodes:nodes.map(n=>({
       x:n.x,
       y:n.y,
@@ -500,7 +492,6 @@ document.getElementById("buildUrlBtn").addEventListener("click",()=>{
   };
 
   localStorage.setItem("nodeGraph",JSON.stringify(graph));
-
 });
 
 function loadSavedGraph(){
@@ -530,7 +521,6 @@ function loadSavedGraph(){
   });
 
   graph.edges.forEach(e=>{
-
     edges.push({
       from:nodes[e.from],
       to:nodes[e.to]
@@ -541,13 +531,9 @@ function loadSavedGraph(){
 }
 
 if(localStorage.getItem("nodeGraph")){
-
   loadSavedGraph();
-
 }else{
-
   createNode(100,100,"root","");
-
   draw();
 }
 
